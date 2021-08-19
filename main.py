@@ -76,12 +76,28 @@ def design(params):
     #Area de refuerzo de la losa en cm2
     As_flexion = params['As_flexion'] = (cuantia_kN_pos * d * 100 * 100)
 
-    #Para barras #8 As = 5.1 cm2
-    As_5 = params['As_5'] = 1.99 # definir al inicio
-    No_barras_5_flexion_pos = params['No_barras_5_flexion_pos'] = (As_flexion / As_5)
+    Verificacion_flexion_pos = params['Verificacion_flexion_pos'] = params.get('Verificacion_flexion_pos', 0)
+    if Verificacion_flexion_pos == 1:
+         #Espaciamiento Armadura a flexión para momentos positivo en cm
+        espac_arm_prin_flexion_pos = params['espac_arm_prin_flexion_pos'] = params.get('espac_arm_prin_flexion_pos', 25)
+        
+        #Area de barra cm2
+        As_barra_flexion_pos = params['As_barra_flexion_pos'] = params.get('As_barra_flexion_pos', '1.99')
+    
+        No_barras_flexion_pos = params['No_barras_flexion_pos'] = 100/espac_arm_prin_flexion_pos
+        As_flexion_pos_entrada = params['As_flexion_pos_entrada'] = No_barras_flexion_pos * As_barra_flexion_pos
+        
+        if As_flexion_pos_entrada < As_flexion :
+            print('no cumple armadura para flexión positiva')
+        else:
+            print('cumple armadura flexion pos')
+    else:
+        #Area de barra cm2
+        As_barra_flexion_pos = params['As_barra_flexion_pos'] = params.get('As_barra_flexion_pos', 1.99)
+        No_barras_flexion_pos = params['No_barras_flexion_pos'] = (As_flexion / As_barra_flexion_pos)
 
-    #Espaciamiento Armadura a flexión para momentos positivo
-    espac_arm_prin_flexion_pos = params['espac_arm_prin_flexion_pos'] = (100 / No_barras_5_flexion_pos)
+        #Espaciamiento Armadura a flexión para momentos positivo
+        espac_arm_prin_flexion_pos = params['espac_arm_prin_flexion_pos'] = (100 / No_barras_flexion_pos)
 
     # Revisión del factor phi = 0.9 para el diseño a flexión para momentos positivo
 
@@ -96,20 +112,61 @@ def design(params):
 
     defor_total_pos = params['defor_total_pos'] = ((d - c_f_pos) * (0.003 / c_f_pos))  
 
+    #Armadura minima
+    #Modulo de rotura del concreto
+    fr = params['fr'] = (0.62 * fc ** 0.5)
+    
+    # factor de variacion de l afisuracion por flexion 5.7.3.3.2 
+    gamma_1 = params['gamma_1'] = params.get('gamma_1',1.6)
+
+    #relacion entre la reistencia especificada a fluencia y la resistencia ultima atracción del refuerzo
+    #refuerzo a706, Grado 60
+    gamma_3 = params['gamma_3'] = params.get('gamma_3',0.75)
+
+    #Modulo elastico de la seccion
+
+    Sc = params['Sc'] = (1 * h ** 2 / 6 )
+    
+    Mcr = params['Mcr'] = (gamma_1 ** 2 * gamma_3 * fr * Sc * 1000)
+    
+    
     # Momento ultimo negativo
+
     Muneg = params['Muneg'] = factor_mod_carga * ( 1.25 * MDC + 1.5 * MDW + 1.75 * MLLIMneg )
-   
-    cuantia_kN_neg =  params['cuantia_kN_neg'] = (( 1 - ( 1 - ( 2 * Muneg / ( phi * 1 * d ** 2 * 0.85 * fc * 1000 ) ) ) ** 0.5 ) * 0.85 * fc /  fy)  
+
+    if Mcr < 1.33*Muneg :
+        Muneg = Mcr
+    else :
+        Muneg1 =1.33*Muneg
+    
+    params['Muneg1']=Muneg1
+
+    cuantia_kN_neg =  params['cuantia_kN_neg'] = (( 1 - ( 1 - ( 2 * Muneg1 / ( phi * 1 * d ** 2 * 0.85 * fc * 1000 ) ) ) ** 0.5 ) * 0.85 * fc /  fy)  
 
     #Area de refuerzo de la losa en cm2
     As_flexion_neg = params['As_flexion_neg'] = (cuantia_kN_neg * d * 100 * 100)
-
-    #Para barras #8 As = 5.1 cm2
-
-    No_barras_5_flexion_neg = params['No_barras_5_flexion_neg'] = (As_flexion_neg / As_5)
+    Verificacion_flexion_neg = params['Verificacion_flexion_neg'] = params.get('Verificacion_flexion_neg', 0)
+    if Verificacion_flexion_neg == 1:
+         #Espaciamiento Armadura a flexión para momentos positivo en cm
+        espac_arm_prin_flexion_neg = params['espac_arm_prin_flexion_neg'] = params.get('espac_arm_prin_flexion_neg', 25)
+        
+        #Area de barra
+        As_barra_flexion_neg = params['As_barra_flexion_neg'] = params.get('As_barra_flexion_neg', '1.99')
     
-    #Espaciamiento Armadura a flexión para momentos positivo
-    espac_arm_prin_flexion_neg = params['espac_arm_prin_flexion_neg'] =  (100 / No_barras_5_flexion_neg)
+        No_barras_flexion_neg = params['No_barras_flexion_neg'] = 100/espac_arm_prin_flexion_neg
+        As_flexion_neg_entrada = params['As_flexion_neg_entrada'] = No_barras_flexion_neg * As_barra_flexion_neg
+        
+        if As_flexion_neg_entrada < As_flexion_neg :
+            print('no cumple armadura para flexión negativa')
+        else:
+            print('cumple armadura flexion negativa')
+    else :
+        #Area de barra cm2
+        As_barra_flexion_neg = params['As_barra_flexion_neg'] = params.get('As_barra_flexion_neg', 1.99)
+        No_barras_flexion_neg = params['No_barras_flexion_neg'] = (As_flexion_neg / As_barra_flexion_neg)
+    
+        #Espaciamiento Armadura a flexión para momentos positivo
+        espac_arm_prin_flexion_neg = params['espac_arm_prin_flexion_neg'] =  (100 / No_barras_flexion_neg)
     
 
     # Revisión del factor phi = 0.9 para el diseño a flexión para momentos positivo
@@ -132,32 +189,14 @@ def design(params):
     if Armadura_de_distribucion > 0.67 :
         Armadura_de_distribucion = 0.67
 
-    As_4 = 1.29
+    As_barra_distribucion = params['As_barra_distribucion'] = params.get('As_barra_distribucion', 1.29)
     As_Armadura_de_distribucion = params['As_Armadura_de_distribucion'] =  ( Armadura_de_distribucion * As_flexion)
 
-    No_barras_4_dist = params['No_barras_4_dist'] = ( As_Armadura_de_distribucion / As_4 )
+    No_barras_dist = params['No_barras_dist'] = ( As_Armadura_de_distribucion / As_barra_distribucion )
     
-    espac_arm_dist = params['espac_arm_dist'] =  ( 100 / No_barras_4_dist )
+    espac_arm_dist = params['espac_arm_dist'] =  ( 100 / No_barras_dist )
 
-    #Armadura minima
-    #Modulo de rotura del concreto
-    fr = params['fr'] = (0.62 * fc ** 0.5)
-    
-    # factor de variacion de l afisuracion por flexion 5.7.3.3.2 
-    gamma_1 = params['gamma_1'] = params.get('gamma_1',1.6)
 
-    #relacion entre la reistencia especificada a fluencia y la resistencia ultima atracción del refuerzo
-    #refuerzo a706, Grado 60
-    gamma_3 = params['gamma_3'] = params.get('gamma_3',0.75)
-
-    #Modulo elastico de la seccion
-
-    Sc = params['Sc'] = (1 * h ** 2 / 6 )
-    
-    Mcr = params['Mcr'] = (gamma_1 ** 2 * gamma_3 * fr * Sc * 1000)
-    
-    if Mcr > Muneg :
-        print ('No cumple Armadura mínima')
     
     # Control de fisuración
     # Factor de exposición clase 1. 5.7.3.4 
@@ -212,7 +251,7 @@ def design(params):
         print ('No cumple control de fisuración')
 
     # Separacion centro a centro de barras 
-    diametro_barra_8 = 2.54
+    diametro_barra_8 = 1.59
     espac_libre = params['espac_libre'] = espac_arm_prin_flexion_pos - diametro_barra_8 
     
     # Espaciamiento minimo de la armadura vaciada in situ 5.10.3 
@@ -235,10 +274,10 @@ def design(params):
     if  As_retytemp > 1278:
         print ('No cumple Retraccion y Temperatura') 
     params['As_retytemp'] = As_retytemp
-    As_3 = 0.71
-    No_barras_3_retytemp = params ['No_barras_3_retytemp'] =  (As_retytemp /100 / As_3) 
+    As_barra_retytemp = params['As_barra_retytemp'] = params.get('As_barra_retytemp', 0.71)
+    No_barras_retytemp = params ['No_barras_retytemp'] =  (As_retytemp /100 / As_barra_retytemp) 
 
-    espa_arm_retytemp = params['espa_arm_retytemp'] = (100 / No_barras_3_retytemp)
+    espa_arm_retytemp = params['espa_arm_retytemp'] = (100 / No_barras_retytemp)
     
     h3 = params['h3'] = (3 * h)
     
@@ -279,14 +318,31 @@ def design(params):
     cuantia_ext = params['cuantia_ext'] = (( 1 - ( 1 - ( 2 * Mu_ext / ( phi * 1 * d ** 2 * 0.85 * fc * 1000 ) ) ) ** 0.5 ) * 0.85 * fc /  fy)
 
     As_flexion_ext = params['As_flexion_ext'] = (cuantia_ext * d * 100 * 100)
+    
+    Verificacion_flexion_ext = params['Verificacion_flexion_ext'] = params.get('Verificacion_flexion_ext', 0)
+    if Verificacion_flexion_ext == 1:
+         #Espaciamiento Armadura a flexión para momentos positivo en cm
+        espac_arm_prin_flexion_ext = params['espac_arm_prin_flexion_ext'] = params.get('espac_arm_prin_flexion_ext', 25)
+        
+        #Area de barra cm2
+        As_barra_flexion_ext = params['As_barra_flexion_ext'] = params.get('As_barra_flexion_ext', '1.99')
+    
+        No_barras_flexion_ext = params['No_barras_flexion_ext'] = 100/espac_arm_prin_flexion_ext
+        As_flexion_ext_entrada = params['As_flexion_ext_entrada'] = No_barras_flexion_ext * As_barra_flexion_ext
+        
+        if As_flexion_ext_entrada < As_flexion_ext :
+            print('no cumple armadura para flexión franja exterior')
+        else:
+            print('cumple armadura flexion franja exterior')
+    
+    else:
+        #Area barra flexion franja exterior cm2
+        As_barra_flexion_ext = params['As_barra_flexion_ext'] = params.get('As_barra_flexion_ext',1.99)
+        No_barras_flexion_ext = params['No_barras_flexion_ext'] = (As_flexion_ext / As_barra_flexion_ext) 
 
-    #Numero de barras #8 flexion franja exterior
+        #Separacion de barras a flexion franja exterior
 
-    No_barras_5_flexion_ext = params['No_barras_5_flexion_ext'] = (As_flexion_ext / As_5) 
-
-    #Separacion de barras a flexion franja exterior
-
-    espac_arm_prin_flexion_ext = params['espac_arm_prin_flexion_ext'] = (100 / No_barras_5_flexion_ext)
+        espac_arm_prin_flexion_ext = params['espac_arm_prin_flexion_ext'] = (100 / No_barras_flexion_ext)
 
     return params
 
@@ -305,8 +361,27 @@ def report(dict):
 
 
 if __name__ == "__main__":
-    params = {}
+    params = {
+        'ancho_de_berma':0, 
+        'espesor_de_carpeta_asfaltica': 0.1,
+        'ancho_inferior_de_bordillo': 0.25,
+        'ancho_superior_de_bordillo': 0.25,
+        'S_entre_vigas': 3.2,
+        'dist_eje_viga_borde': 0,
+        'num_carriles': 1,
+        'MDC': 8.86,
+        'MDW': 0,
+        'MLLIMpos': 36.67,
+        'MLLIMneg': 0,
+        'Verificacion_flexion_pos': 1,
+        'espac_arm_prin_flexion_pos': 20,
+        'As_barra_flexion_pos': 1.99,
+        'As_barra_distribucion': 1.99,
+        'As_barra_retytemp':1.99,
 
+
+        
+        }
     params = design(params)
 
     doc.render(params)
