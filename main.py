@@ -1,14 +1,27 @@
-import numpy as np
-from docxtpl import DocxTemplate
+import makepath
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+from docxtpl import DocxTemplate
+from pyFEM import Structure
 
 doc = DocxTemplate("Losa sobre vigas.docx")
 
 def design(params):
     # datos de entrada
 
+    # materiales
     fc = params['fc'] = params.get('fc', 28)
     fy = params['fy'] = params.get('fy', 420)
+
+    # geometría
+    # viga
+    base_viga = params['base_viga'] = params.get('base_viga', 0.45)
+    S_entre_vigas = params['S_entre_vigas'] = params.get('S_entre_vigas', 2.55)
+    separacion_centros_vigas = params['separacion_centros_vigas'] = base_viga + S_entre_vigas
+
+    # TODO: las demás dimensiones...
     L = params['L'] = params.get('L', 10)
     ancho_de_carril = params['ancho_de_carril'] = params.get('ancho_de_carril', 3.6)
     ancho_de_berma = params['ancho_de_berma'] = params.get('ancho_de_berma', 1)
@@ -17,8 +30,8 @@ def design(params):
     ancho_inferior_de_bordillo = params['ancho_inferior_de_bordillo'] = params.get('ancho_inferior_de_bordillo', 0.2)
     ancho_superior_de_bordillo = params['ancho_superior_de_bordillo'] = params.get('ancho_superior_de_bordillo', 0.2)
     altura_de_bordillo = params['altura_de_bordillo'] = params.get('altura_de_bordillo', 0.3)
-    h = params['h'] = params.get('h', 0.22)
-    S_entre_vigas = params['S_entre_vigas'] = params.get('S_entre_vigas', 2.55)
+    h = params['h'] = params.get('h', 0.22)  # espesor de la losa (?)
+
     dist_eje_viga_borde = params['dist_eje_vig_borde'] = params.get('dist_eje_vig_borde', 0.9)
     num_carriles = params['num_carriles'] = params.get('num_carriles', 2)
     # TODO: agregar num_carriles params
@@ -35,10 +48,71 @@ def design(params):
     DC = params['DC'] = pespecifico_concreto * h
     DW = params['DW'] = (pespecifico_carpeta_asfaltica * espesor_de_carpeta_asfaltica)
 
-    #Momentos máximos
+    # Momentos máximos
+    # pyFEM
+    
+    # datos entrada
+    model = params['model'] = Structure(uy=True, rz=False)
+
+    # materiales
+    model.add_material('mat', E=1)
+
+    # secciones
+    model.add_section('sec', Iy=1)
+
+    # nodos
+    model.add_joint('A', x=0)
+    model.add_joint('B', x=separacion_centros_vigas)
+
+    # elementos aporticados
+    model.add_frame('1', 'A', 'B', 'mat', 'sec')
+
+    # apoyos
+    model.add_support('A', uy=True)
+    model.add_support('B', uy=True)
+
+    # patrones de carga
+    model.add_load_pattern('MDC')
+    model.add_distributed_load('MDC', '1', fy=-DC)
+
+    model.add_load_pattern('MDW')
+    model.add_distributed_load('MDW', '1', fy=-DW)
+
+    # solve
+    model.solve()
+    frame = model.frames['1']
+
+    # plot
+    loadPattern = model.load_patterns['MDC']
+    mz = model.internal_forces[loadPattern][frame].mz
+    x = np.linspace(0, frame.get_length(), len(mz))
+    
+    fig, ax = plt.subplots()
+    
+    ax.plot(x, -mz, 'r')
+    ax.set_title('Momento flector')
+    ax.set_xlim(min(x), max(x))
+    ax.set_ylim(ymax=0)
+
+    ax.set_xlabel('m')
+    ax.set_ylabel('kN m')
+
+    ax.set_xticks(x[::2])
+    ax.set_yticks(list(set(np.round_(-mz[::2], 3))))
+    ax.grid(True)
+    
+    fig.savefig('MDC.png')
+
+    
+
+    
+    
+
+    
+    
     # Cargas Permanentes
     # Unidades en kN/m
-    MDC = params['MDC'] = params.get('MDC', 4.68)
+    MDC = params['MDC'] = model.internal_forces[model.load_patterns['MDC'][frame]]
     MDW = params['MDW'] = params.get('MDW', 1.94)
 
     
@@ -361,7 +435,10 @@ def report(dict):
 
 
 if __name__ == "__main__":
+    # diseño's diego
     params = {
+        # dimensiones de la viga
+        'base_viga': 0.5,
         'ancho_de_berma':0, 
         'espesor_de_carpeta_asfaltica': 0.1,
         'ancho_inferior_de_bordillo': 0.25,
@@ -377,13 +454,28 @@ if __name__ == "__main__":
         'espac_arm_prin_flexion_pos': 20,
         'As_barra_flexion_pos': 1.99,
         'As_barra_distribucion': 1.99,
-        'As_barra_retytemp':1.99,
-
-
-        
+        'As_barra_retytemp':1.99,        
         }
+
+    # changes cristian
+
+
+    
     params = design(params)
+    print(f"separacion_centros_vigas: {params['separacion_centros_vigas']} m")
+    
+    print(f"DC: {params['DC']} kN")
+    print(f"MDC: {params['MDC']} kN m")
+
+    model = params['model']
+    loadPattern = model.load_patterns['MDC']
+    print(params['model'].end_actions[loadPattern])
+
+    
 
     doc.render(params)
+    print(params['separacion_centros_vigas'])
+
+    # doc.replace_pic('image3.png', 'MDC.png')
     doc.save('Memoria de cálculos de la losa sobre vigas.docx')
 
